@@ -1,5 +1,5 @@
 [package]
-name = "ethersPlayground"
+name = "ethers_playground"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,4 +13,5 @@ serde = "1.0"
 serde_json = "1.0"
 
 eyre = "0.6"
+clap = { version = "4.4.18", features = ["derive"] }
 

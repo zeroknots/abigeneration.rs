@@ -1,79 +1,42 @@
-use ethers::{
-    prelude::{abigen, Abigen},
-    providers::{Http, Provider},
-    types::Address,
-};
+use clap::Parser;
+use ethers::prelude::Abigen;
 use eyre::Result;
-use std::sync::Arc;
 
-/// Abigen is used to generate Rust code to interact with smart contracts on the blockchain.
-/// It provides a way to encode and decode data that is passed to and from smart contracts.
-/// The output of abigen is Rust code, that is bound to the contract's interface, allowing
-/// developers to call its methods to read/write on-chain state and subscribe to realtime events.
-///
-/// The abigen tool can be used in two ways, addressing different use-cases scenarios and developer
-/// taste:
-///
-/// 1. **Rust file generation:** takes a smart contract's Application Binary Interface (ABI)
-/// file and generates a Rust file to interact with it. This is useful if the smart contract is
-/// referenced in different places in a project. File generation from ABI can also be easily
-/// included as a build step of your application.
-/// 2. **Rust inline generation:** takes a smart contract's solidity definition and generates inline
-/// Rust code to interact with it. This is useful for fast prototyping and for tight scoped
-/// use-cases of your contracts.
-/// 3. **Rust inline generation from ABI:** similar to the previous point but instead of Solidity
-/// code takes in input a smart contract's Application Binary Interface (ABI) file.
-#[tokio::main]
-async fn main() -> Result<()> {
-    rust_file_generation()?;
-    rust_inline_generation().await?;
-    rust_inline_generation_from_abi();
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(long = "file", short = 'f')]
+    abi_file: String,
+    #[arg(long = "out", short = 'o')]
+    out_file: String,
+}
+
+fn main() -> Result<()> {
+    let args = Args::parse();
+    rust_file_generation(&args.abi_file, &args.out_file)?;
     Ok(())
 }
 
-fn rust_file_generation() -> Result<()> {
-    let abi_source = "./abi/IERC20.json";
-    let out_file = std::env::current_dir()?.join("ierc20.rs");
+fn rust_file_generation(abi_source: &str, out_file: &str) -> Result<()> {
+    let _ = out_file;
+    let abi_name = abi_source
+        .split("/")
+        .last()
+        .unwrap()
+        .split(".")
+        .next()
+        .unwrap();
+    // let out_file = std::env::current_dir()?.join("ierc20.rs");
+    let out_file = std::env::current_dir()?.join(abi_name).with_extension("rs");
+    println!("abi_name: {}", abi_name);
+    println!("abi_source: {}", abi_source);
+    println!("out_file: {}", out_file.display());
     if out_file.exists() {
         std::fs::remove_file(&out_file)?;
     }
-    Abigen::new("IERC20", abi_source)?.generate()?.write_to_file(out_file)?;
-    Ok(())
-}
 
-fn rust_inline_generation_from_abi() {
-    abigen!(IERC20, "./abi/IERC20.json");
-}
-
-async fn rust_inline_generation() -> Result<()> {
-    // The abigen! macro expands the contract's code in the current scope
-    // so that you can interface your Rust program with the blockchain
-    // counterpart of the contract.
-    abigen!(
-        IERC20,
-        r#"[
-            function totalSupply() external view returns (uint256)
-            function balanceOf(address account) external view returns (uint256)
-            function transfer(address recipient, uint256 amount) external returns (bool)
-            function allowance(address owner, address spender) external view returns (uint256)
-            function approve(address spender, uint256 amount) external returns (bool)
-            function transferFrom( address sender, address recipient, uint256 amount) external returns (bool)
-            event Transfer(address indexed from, address indexed to, uint256 value)
-            event Approval(address indexed owner, address indexed spender, uint256 value)
-        ]"#,
-    );
-
-    const RPC_URL: &str = "https://eth.llamarpc.com";
-    const WETH_ADDRESS: &str = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-
-    let provider = Provider::<Http>::try_from(RPC_URL)?;
-    let client = Arc::new(provider);
-    let address: Address = WETH_ADDRESS.parse()?;
-    let contract = IERC20::new(address, client);
-
-    if let Ok(total_supply) = contract.total_supply().call().await {
-        println!("WETH total supply is {total_supply:?}");
-    }
-
+    Abigen::new(abi_name, abi_source)?
+        .generate()?
+        .write_to_file(out_file)?;
     Ok(())
 }
