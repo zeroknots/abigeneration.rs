@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use ethers::prelude::Abigen;
 use eyre::Result;
@@ -13,12 +15,19 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    rust_file_generation(&args.abi_file, &args.out_file)?;
+    let out_file = &std::env::current_dir()?
+        .join(args.out_file);
+    // check if file extension is rs. if not add rs
+    let out_file = if out_file.extension().is_none() {
+        out_file.with_extension("rs")
+    } else {
+        out_file.to_path_buf()
+    };
+    rust_file_generation(&args.abi_file, out_file)?;
     Ok(())
 }
 
-fn rust_file_generation(abi_source: &str, out_file: &str) -> Result<()> {
-    let _ = out_file;
+fn rust_file_generation(abi_source: &str, out_file: PathBuf) -> Result<()> {
     let abi_name = abi_source
         .split("/")
         .last()
@@ -26,11 +35,7 @@ fn rust_file_generation(abi_source: &str, out_file: &str) -> Result<()> {
         .split(".")
         .next()
         .unwrap();
-    // let out_file = std::env::current_dir()?.join("ierc20.rs");
-    let out_file = std::env::current_dir()?.join(abi_name).with_extension("rs");
-    println!("abi_name: {}", abi_name);
-    println!("abi_source: {}", abi_source);
-    println!("out_file: {}", out_file.display());
+    println!("Wrote File to: {:?}", out_file);
     if out_file.exists() {
         std::fs::remove_file(&out_file)?;
     }
